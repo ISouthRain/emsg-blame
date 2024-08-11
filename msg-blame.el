@@ -27,33 +27,14 @@
   :type 'string
   :group 'msg-blame)
 
-;;;###autoload
-(define-minor-mode msg-blame-mode
-  "Minor mode to show git blame information in messages."
-  :lighter " MsgBlame"
-  :group 'msg-blame
-  (if msg-blame-mode
-      (msg-blame--enable)
-    (msg-blame--disable)))
-
-;;;###autoload
-(define-globalized-minor-mode global-msg-blame-mode
-  msg-blame-mode
-  msg-blame--turn-on)
-
-(defun msg-blame--turn-on ()
-  "Enable `msg-blame-mode' in the current buffer."
-  (when (and (buffer-file-name)
-             (vc-backend (buffer-file-name)))
-    (msg-blame-mode 1)))
-
 (defun msg-blame--enable ()
   "Enable msg-blame functionality."
   (add-hook 'post-command-hook #'msg-blame--post-command nil t))
 
 (defun msg-blame--disable ()
   "Disable msg-blame functionality."
-  (remove-hook 'post-command-hook #'msg-blame--post-command t))
+  (cancel-function-timers #'msg-blame--check-and-blame)
+  (setq msg-blame--last-line nil))
 
 (defvar-local msg-blame--last-line nil
   "Cache the last line number that was processed.")
@@ -101,6 +82,12 @@
   (when (string-match (concat regex "\\(.*\\)") output)
     (match-string 1 output)))
 
+(defun msg-blame--turn-on ()
+  "Enable `msg-blame-mode' in the current buffer."
+  (when (and (buffer-file-name)
+             (vc-backend (buffer-file-name)))
+    (msg-blame-mode 1)))
+
 ;;;###autoload
 (define-minor-mode msg-blame-mode
   "Minor mode to show git blame information in messages."
@@ -110,21 +97,10 @@
       (msg-blame--start-timer)
     (msg-blame--disable)))
 
-(defun msg-blame--disable ()
-  "Disable msg-blame functionality."
-  (cancel-function-timers #'msg-blame--check-and-blame)
-  (setq msg-blame--last-line nil))
-
 ;;;###autoload
 (define-globalized-minor-mode global-msg-blame-mode
   msg-blame-mode
   msg-blame--turn-on)
-
-(defun msg-blame--turn-on ()
-  "Enable `msg-blame-mode' in the current buffer."
-  (when (and (buffer-file-name)
-             (vc-backend (buffer-file-name)))
-    (msg-blame-mode 1)))
 
 (provide 'msg-blame)
 
