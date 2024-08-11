@@ -1,6 +1,7 @@
 ;; -*- coding: utf-8; -*-
 
 (require 'async)
+(require 'subr-x) ;; for `string-empty-p`
 
 (defgroup msg-blame nil
   "A minor mode to show git blame information in messages."
@@ -57,10 +58,17 @@
   "Asynchronously get git blame information for FILE at LINE."
   (async-start
    `(lambda ()
-      (with-temp-buffer
-        ;; 限制 git blame 搜索深度为单行，避免过多计算
-        (when (zerop (call-process "git" nil t nil "blame" "-L" ,(format "%d,%d" line line) "--porcelain" ,file))
-          (buffer-string))))
+      (let ((default-directory ,(convert-standard-filename (file-name-directory file)))
+            (coding-system-for-read 'utf-8)
+            (coding-system-for-write 'utf-8))
+        (with-temp-buffer
+          ;; 限制 git blame 搜索深度为单行，避免过多计算
+          (when (zerop (call-process "git" nil t nil
+                                     "blame"
+                                     "-L" ,(format "%d,%d" line line)
+                                     "--porcelain"
+                                     ,(convert-standard-filename (file-name-nondirectory file))))
+            (buffer-string)))))
    (lambda (output)
      (msg-blame--handle-blame-output output))))
 
@@ -72,9 +80,9 @@
              (summary (msg-blame--extract-info output "^summary ")))
         (message "%s %s %s %s"
                  msg-blame-author-icon
-                 author
-                 (format-time-string msg-blame-date-format (seconds-to-time (string-to-number date)))
-                 summary))
+                 (string-trim author)
+                 (format-time-string msg-blame-date-format (seconds-to-time (string-to-number (string-trim date))))
+                 (string-trim summary)))
     (message "%s" msg-blame-no-commit-message)))
 
 (defun msg-blame--extract-info (output regex)
