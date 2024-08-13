@@ -4,66 +4,66 @@
 (require 'subr-x) ;; for `string-empty-p`
 ;; (require 'posframe)
 
-(defgroup msg-blame nil
+(defgroup emsg-blame nil
   "A minor mode to show git blame information in messages."
   :group 'tools
-  :prefix "msg-blame-")
+  :prefix "emsg-blame-")
 
-(defcustom msg-blame-idle-time 1.0
+(defcustom emsg-blame-idle-time 1.0
   "Time in seconds of idle before showing git blame information."
   :type 'number
-  :group 'msg-blame)
+  :group 'emsg-blame)
 
-(defcustom msg-blame-author-icon "👤"
+(defcustom emsg-blame-author-icon "👤"
   "Icon used to display the author's name."
   :type 'string
-  :group 'msg-blame)
+  :group 'emsg-blame)
 
-(defcustom msg-blame-date-format "%Y-%m-%d"
+(defcustom emsg-blame-date-format "%Y-%m-%d"
   "Format for displaying the date."
   :type 'string
-  :group 'msg-blame)
+  :group 'emsg-blame)
 
-(defcustom msg-blame-no-commit-message "No commit information available."
+(defcustom emsg-blame-no-commit-message "No commit information available."
   "Message to show when no commit information is found."
   :type 'string
-  :group 'msg-blame)
+  :group 'emsg-blame)
 
-(defcustom msg-blame-display-method 'message
+(defcustom emsg-blame-display-method 'message
   "Method to display git blame information. Options are 'message or 'posframe."
   :type '(choice (const :tag "Message" message)
                  (const :tag "Posframe" posframe))
-  :group 'msg-blame)
+  :group 'emsg-blame)
 
-(defun msg-blame--enable ()
-  "Enable msg-blame functionality."
-  (add-hook 'post-command-hook #'msg-blame--post-command nil t))
+(defun emsg-blame--enable ()
+  "Enable emsg-blame functionality."
+  (add-hook 'post-command-hook #'emsg-blame--post-command nil t))
 
-(defun msg-blame--disable ()
-  "Disable msg-blame functionality."
-  (cancel-function-timers #'msg-blame--check-and-blame)
-  (setq msg-blame--last-line nil)
+(defun emsg-blame--disable ()
+  "Disable emsg-blame functionality."
+  (cancel-function-timers #'emsg-blame--check-and-blame)
+  (setq emsg-blame--last-line nil)
   (when (posframe-workable-p)
-    (posframe-hide "*msg-blame-posframe*")))
+    (posframe-hide "*emsg-blame-posframe*")))
 
-(defvar-local msg-blame--last-line nil
+(defvar-local emsg-blame--last-line nil
   "Cache the last line number that was processed.")
 
-(defun msg-blame--start-timer ()
-  "Start the idle timer for msg-blame."
-  (run-with-idle-timer msg-blame-idle-time t #'msg-blame--check-and-blame))
+(defun emsg-blame--start-timer ()
+  "Start the idle timer for emsg-blame."
+  (run-with-idle-timer emsg-blame-idle-time t #'emsg-blame--check-and-blame))
 
-(defun msg-blame--check-and-blame ()
+(defun emsg-blame--check-and-blame ()
   "Check if we need to run git blame and do so if necessary."
   (let ((current-line (line-number-at-pos))
         (file (buffer-file-name)))
-    (when (and msg-blame-mode
+    (when (and emsg-blame-mode
                file
-               (not (equal current-line msg-blame--last-line)))
-      (setq msg-blame--last-line current-line)
-      (msg-blame--async-blame file current-line))))
+               (not (equal current-line emsg-blame--last-line)))
+      (setq emsg-blame--last-line current-line)
+      (emsg-blame--async-blame file current-line))))
 
-(defun msg-blame--async-blame (file line)
+(defun emsg-blame--async-blame (file line)
   "Asynchronously get git blame information for FILE at LINE."
   (async-start
    `(lambda ()
@@ -78,35 +78,35 @@
                                      ,(convert-standard-filename (file-name-nondirectory file))))
             (buffer-string)))))
    (lambda (output)
-     (msg-blame--handle-blame-output output))))
+     (emsg-blame--handle-blame-output output))))
 
-(defun msg-blame--handle-blame-output (output)
+(defun emsg-blame--handle-blame-output (output)
   "Handle the OUTPUT of the git blame command."
   (if (not (string-empty-p output))
-      (let* ((author (msg-blame--extract-info output "^author "))
-             (date (msg-blame--extract-info output "^author-time "))
-             (summary (msg-blame--extract-info output "^summary "))
-             (relative-time (msg-blame--format-relative-time date)))
-        (if (eq msg-blame-display-method 'posframe)
+      (let* ((author (emsg-blame--extract-info output "^author "))
+             (date (emsg-blame--extract-info output "^author-time "))
+             (summary (emsg-blame--extract-info output "^summary "))
+             (relative-time (emsg-blame--format-relative-time date)))
+        (if (eq emsg-blame-display-method 'posframe)
             (progn
-              (msg-blame--display (format "Author: %s \nDate: %s \n%s"
+              (emsg-blame--display (format "Author: %s \nDate: %s \n%s"
                                           (string-trim author)
                                           relative-time
                                           (string-trim summary))))
-          (msg-blame--display (format "%s %s %s <%s>"
-                                      msg-blame-author-icon
+          (emsg-blame--display (format "%s %s %s <%s>"
+                                      emsg-blame-author-icon
                                       (string-trim author)
                                       relative-time
                                       (string-trim summary))))
         )
-    (msg-blame--display msg-blame-no-commit-message)))
+    (emsg-blame--display emsg-blame-no-commit-message)))
 
-(defun msg-blame--extract-info (output regex)
+(defun emsg-blame--extract-info (output regex)
   "Extract information from the OUTPUT using the REGEX."
   (when (string-match (concat regex "\\(.*\\)") output)
     (match-string 1 output)))
 
-(defun msg-blame--format-relative-time (date)
+(defun emsg-blame--format-relative-time (date)
   "Format relative time for display."
   (let* ((date (seconds-to-time (string-to-number (string-trim date))))
          (now (current-time))
@@ -122,17 +122,17 @@
      ((< diff seconds-in-day) (format "%d小时前" (floor (/ diff seconds-in-hour))))
      ((< diff seconds-in-month) (format "%d天前" (floor (/ diff seconds-in-day))))
      ((< diff (* 1 seconds-in-month)) (format "%d个月前" (floor (/ diff seconds-in-month))))
-     (t (format-time-string msg-blame-date-format date)))))
+     (t (format-time-string emsg-blame-date-format date)))))
 
-(defun msg-blame--display (message-text)
-  "Display the MESSAGE-TEXT according to `msg-blame-display-method`."
-  (if (eq msg-blame-display-method 'posframe)
-      (msg-blame--display-posframe message-text)
+(defun emsg-blame--display (message-text)
+  "Display the MESSAGE-TEXT according to `emsg-blame-display-method`."
+  (if (eq emsg-blame-display-method 'posframe)
+      (emsg-blame--display-posframe message-text)
     (message "%s" message-text)))
 
-(defun msg-blame--display-posframe (message-text)
+(defun emsg-blame--display-posframe (message-text)
   "Display the MESSAGE-TEXT using posframe at point."
-  (posframe-show "*msg-blame-posframe*"
+  (posframe-show "*emsg-blame-posframe*"
                :string message-text
                :timeout 5
                :max-width 40
@@ -145,26 +145,26 @@
                )
   )
 
-(defun msg-blame--turn-on ()
-  "Enable `msg-blame-mode' in the current buffer."
+(defun emsg-blame--turn-on ()
+  "Enable `emsg-blame-mode' in the current buffer."
   (when (and (buffer-file-name)
              (vc-backend (buffer-file-name)))
-    (msg-blame-mode 1)))
+    (emsg-blame-mode 1)))
 
 ;;;###autoload
-(define-minor-mode msg-blame-mode
+(define-minor-mode emsg-blame-mode
   "Minor mode to show git blame information in messages."
   :lighter " MsgBlame"
-  :group 'msg-blame
-  (if msg-blame-mode
-      (msg-blame--start-timer)
-    (msg-blame--disable)))
+  :group 'emsg-blame
+  (if emsg-blame-mode
+      (emsg-blame--start-timer)
+    (emsg-blame--disable)))
 
 ;;;###autoload
-(define-globalized-minor-mode global-msg-blame-mode
-  msg-blame-mode
-  msg-blame--turn-on)
+(define-globalized-minor-mode global-emsg-blame-mode
+  emsg-blame-mode
+  emsg-blame--turn-on)
 
-(provide 'msg-blame)
+(provide 'emsg-blame)
 
-;;; msg-blame.el ends here
+;;; emsg-blame.el ends here
