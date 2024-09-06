@@ -24,7 +24,7 @@
   :type 'string
   :group 'emsg-blame)
 
-(defcustom emsg-blame-no-commit-message "No commit information available."
+(defcustom emsg-blame-no-commit-message "`emsg-blame` No commit information available."
   "Message to show when no commit information is found."
   :type 'string
   :group 'emsg-blame)
@@ -82,28 +82,32 @@
 
 (defun emsg-blame--handle-blame-output (output)
   "Handle the OUTPUT of the git blame command."
-  (if (not (string-empty-p output))
+  ;; 检查 output 是否为 nil 或空字符串
+  (if (and output (not (string-empty-p output)))
       (let* ((author (emsg-blame--extract-info output "^author "))
              (date (emsg-blame--extract-info output "^author-time "))
              (summary (emsg-blame--extract-info output "^summary "))
-             (relative-time (emsg-blame--format-relative-time date)))
+             ;; 检查 author 和 date 是否成功提取
+             (relative-time (if date (emsg-blame--format-relative-time date) "Unknown date")))
         (if (eq emsg-blame-display-method 'posframe)
-            (progn
-              (emsg-blame--display (format "Author: %s \nDate: %s \n%s"
-                                          (string-trim author)
-                                          relative-time
-                                          (string-trim summary))))
+            ;; 使用 posframe 显示信息
+            (emsg-blame--display (format "Author: %s\nDate: %s\n%s"
+                                         (or (string-trim author) "Unknown author")
+                                         relative-time
+                                         (or (string-trim summary) "No summary")))
+          ;; 使用 message 显示信息
           (emsg-blame--display (format "%s %s %s <%s>"
-                                      emsg-blame-author-icon
-                                      (string-trim author)
-                                      relative-time
-                                      (string-trim summary))))
-        )
+                                       emsg-blame-author-icon
+                                       (or (string-trim author) "Unknown author")
+                                       relative-time
+                                       (or (string-trim summary) "No summary")))))
+    ;; 当 output 为 nil 或为空时，显示无提交信息
     (emsg-blame--display emsg-blame-no-commit-message)))
 
 (defun emsg-blame--extract-info (output regex)
   "Extract information from the OUTPUT using the REGEX."
-  (when (string-match (concat regex "\\(.*\\)") output)
+  ;; 确保 output 不是 nil，并且成功匹配
+  (when (and output (string-match (concat regex "\\(.*\\)") output))
     (match-string 1 output)))
 
 (defun emsg-blame--format-relative-time (date)
