@@ -24,7 +24,7 @@ To install *emsg-blame* , place the following in your Emacs configuration file (
 
 ** Custom Display output
 *** default
-[[file:./attach/emsg-blame/20240907_131301.png]]
+[[file:./attach/README/20240907_142428.png]]
 
 *** message
 #+begin_src emacs-lisp :tangle yes
@@ -32,7 +32,7 @@ To install *emsg-blame* , place the following in your Emacs configuration file (
   (message " 👽%s 📅%s 🗨️%s" emsg-blame--commit-author emsg-blame--commit-date emsg-blame--commit-summary))
 (setq emsg-blame-display #'my--emsg-blame-display)
 #+end_src
-[[file:./attach/emsg-blame/20240907_125302.png]]
+[[file:./attach/README//20240907_125302.png]]
 
 *** posframe
 #+begin_src emacs-lisp :tangle yes
@@ -51,7 +51,7 @@ To install *emsg-blame* , place the following in your Emacs configuration file (
   )
 (setq emsg-blame-display #'my--emsg-blame-display)
 #+end_src
-[[file:./attach/emsg-blame/20240907_130546.png]]
+[[file:./attach/README/20240907_142546.png]]
 
 *** More display Method
 I think you already understand!
