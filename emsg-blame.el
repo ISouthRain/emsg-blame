@@ -13,9 +13,14 @@
   :type 'number
   :group 'emsg-blame)
 
-(defcustom emsg-blame-date-format "%Y-%m-%d"
+(defcustom emsg-blame-date-format "%Y-%m-%d %H:%M:%S"
   "Format for displaying the date."
   :type 'string
+  :group 'emsg-blame)
+
+(defcustom emsg-blame-data-pretty t
+  "Toggle pretty time display."
+  :type 'boolean
   :group 'emsg-blame)
 
 (defcustom emsg-blame-no-commit-message "`emsg-blame` Output: No commit information available."
@@ -29,7 +34,56 @@
                  function)
   :group 'emsg-blame)
 
+(defcustom emsg-blame-i18n-lang "English"
+  "Local language environment for `emsg-blame`.
+Possible values include:
+- \"English\" (default)
+- \"Chinese\"
+- \"French\"
+- \"Russian\"
+This setting determines the language used for displaying time information."
+  :type '(choice (const :tag "English" "English")
+                 (const :tag "Chinese" "Chinese")
+                 (const :tag "French" "French")
+                 (const :tag "Russian" "Russian"))
   :group 'emsg-blame)
+
+(defun emsg-blame--get-time-descriptions ()
+  "Return time description strings based on the current language environment."
+  (let ((lang (or emsg-blame-i18n-lang "English")))  ;; 默认英文
+    (cond
+     ;; 使用 `member` 检查语言环境
+     ((member lang '("Chinese" "Chinese Simplified"))
+      (list "刚刚"
+            "%d分钟前"
+            "%d小时前"
+            "%d天前"
+            "%d个月前"
+            "%d年前"))
+
+     ((member lang '("French"))
+      (list "à l'instant"
+            "il y a %d minutes"
+            "il y a %d heures"
+            "il y a %d jours"
+            "il y a %d mois"
+            "il y a %d ans"))
+
+     ((member lang '("Russian"))
+      (list "только что"
+            "%d минут назад"
+            "%d часов назад"
+            "%d дней назад"
+            "%d месяцев назад"
+            "%d лет назад"))
+
+     ;; 默认英文
+     (t (list "Just Now"
+              "%d minutes ago"
+              "%d hours ago"
+              "%d days ago"
+              "%d months ago"
+              "%d years ago")))))
 
 (defvar emsg-blame--commit-author ""
   "emsg-blame Commit Author.")
@@ -42,7 +96,7 @@
 
 (defun emsg-blame--display-message ()
   "emsg-blame Default display function."
-  (message " %s %s %s " emsg-blame--commit-author emsg-blame--commit-date emsg-blame--commit-summary))
+  (message " %s %s <%s> " emsg-blame--commit-author emsg-blame--commit-date emsg-blame--commit-summary))
 
 (defvar-local emsg-blame--last-line nil
   "Cache the last line number that was processed.")
@@ -116,7 +170,7 @@
     (match-string 1 output)))
 
 (defun emsg-blame--format-relative-time (date)
-  "Format relative time for display."
+  "Format relative time for display based on the selected language and the value of `emsg-blame-data-pretty`."
   (let* ((date (seconds-to-time (string-to-number (string-trim date))))
          (now (current-time))
          (diff (float-time (time-subtract now date)))
@@ -124,14 +178,28 @@
          (seconds-in-hour (* 60 seconds-in-minute))
          (seconds-in-day (* 24 seconds-in-hour))
          (seconds-in-month (* 30 seconds-in-day))
-         (seconds-in-year (* 365 seconds-in-day)))
-    (cond
-     ((< diff seconds-in-minute) "刚刚")
-     ((< diff seconds-in-hour) (format "%d分钟前" (floor (/ diff seconds-in-minute))))
-     ((< diff seconds-in-day) (format "%d小时前" (floor (/ diff seconds-in-hour))))
-     ((< diff seconds-in-month) (format "%d天前" (floor (/ diff seconds-in-day))))
-     ((< diff (* 1 seconds-in-month)) (format "%d个月前" (floor (/ diff seconds-in-month))))
-     (t (format-time-string emsg-blame-date-format date)))))
+         (seconds-in-year (* 365 seconds-in-day))
+         ;; 获取时间描述
+         (descriptions (emsg-blame--get-time-descriptions))
+         (just-now (nth 0 descriptions))
+         (minutes-ago (nth 1 descriptions))
+         (hours-ago (nth 2 descriptions))
+         (days-ago (nth 3 descriptions))
+         (months-ago (nth 4 descriptions))
+         (years-ago (nth 5 descriptions)))
+
+    ;; 如果 `emsg-blame-data-pretty` 为 nil，直接显示绝对时间
+    (if (not emsg-blame-data-pretty)
+        (format-time-string emsg-blame-date-format date)
+      ;; 否则显示相对时间
+      (cond
+       ((< diff seconds-in-minute) just-now)
+       ((< diff seconds-in-hour) (format minutes-ago (floor (/ diff seconds-in-minute))))
+       ((< diff seconds-in-day) (format hours-ago (floor (/ diff seconds-in-hour))))
+       ((< diff seconds-in-month) (format days-ago (floor (/ diff seconds-in-day))))
+       ((< diff seconds-in-year) (format months-ago (floor (/ diff seconds-in-month))))
+       (t (format years-ago (floor (/ diff seconds-in-year)))))))
+  )
 
 (defun emsg-blame--no-commit-display (message-text)
   "Display the MESSAGE-TEXT according to `emsg-blame-no-commit-message`."
