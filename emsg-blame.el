@@ -1,7 +1,23 @@
 ;; -*- coding: utf-8; -*-
 
+;;; emsg-blame.el --- View git blame in Emacs.  -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2024 Free Software Foundation, Inc.
+;; License: GPL-3.0-or-later
+
+;; Author: ISouthRain
+;; Version: 0.1
+;; Package-Requires: ((emacs "24.2"))
+;; Keywords: blame
+;; URL: https://github.com/ISouthRain/emsg-blame
+
+;;; Commentary:
+;;
+;; This package is quickly view git blame information of the current file line in Emacs in real time.
+
+;;; Code:
 (require 'async)
-(require 'subr-x) ;; for `string-empty-p`
+(require 'subr-x)
 
 (defgroup emsg-blame nil
   "A minor mode to show git blame information in messages."
