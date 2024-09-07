@@ -1,0 +1,131 @@
+# -*- coding: utf-8; -*-
+* emsg-blame
+
+** Overview
+A *simple*, *fast*, *asynchronous*, *customizable display*, view of git blame in Emacs.
+
+*emsg-blame* is a minor mode for Emacs that displays Git blame information in the Emacs message area. This package provides detailed information about the last commit that affected the current line, including the author, date, and summary of the commit. It supports multiple languages for time descriptions and allows customization of how and when the blame information is displayed.
+
+- Only Emacs dependence, This package is very commonly used.
+  - [[https://github.com/jwiegley/emacs-async][GitHub - jwiegley/emacs-async: Simple library for asynchronous processing in ...]]
+
+** Preview for message display
+There are many more ways to display it.
+[[./attach/preview.gif]]
+
+** Installation
+
+To install *emsg-blame* , place the following in your Emacs configuration file (*.emacs* or *init.el*):
+#+begin_src emacs-lisp :tangle yes
+(add-to-list 'load-path "/path/to/emsg-blame")
+(require 'emsg-blame)
+(global-emsg-blame-mode t)
+#+end_src
+
+** Custom Display output
+*** default
+[[file:./attach/emsg-blame/20240907_131301.png]]
+
+*** message
+#+begin_src emacs-lisp :tangle yes
+(defun my--emsg-blame-display ()
+  (message " 👽%s 📅%s 🗨️%s" emsg-blame--commit-author emsg-blame--commit-date emsg-blame--commit-summary))
+(setq emsg-blame-display #'my--emsg-blame-display)
+#+end_src
+[[file:./attach/emsg-blame/20240907_125302.png]]
+
+*** posframe
+#+begin_src emacs-lisp :tangle yes
+(defun my--emsg-blame-display ()
+  (posframe-show "*emgs-blame-posframe*"
+                 :string (format " 👽%s\n 📅%s\n 🗨️%s " emsg-blame--commit-author emsg-blame--commit-date emsg-blame--commit-summary)
+                 :timeout 5
+                 :max-width 30
+                 :left-fringe 5
+                 :right-fringe 5
+                 :position (point)
+                 :poshandler #'posframe-poshandler-frame-top-right-corner
+                 :border-width 5;; 外边框大小
+                 :border-color "#ed98cc" ;; 边框颜色
+                 )
+  )
+(setq emsg-blame-display #'my--emsg-blame-display)
+#+end_src
+[[file:./attach/emsg-blame/20240907_130546.png]]
+
+*** More display Method
+I think you already understand!
+commit info variable:
+- *emsg-blame--commit-author*
+- *emsg-blame--commit-date*
+- *emsg-blame--commit-summary*
+
+** Manual enable mode
+
+To enable *emsg-blame-mode* in the current buffer, use:
+M-x *emsg-blame-mode*
+
+To enable emsg-blame globally across all buffers, use:
+M-x *global-emsg-blame-mode*
+
+** Customization
+
+The behavior of emsg-blame can be customized using the following variables:
+
+    *emsg-blame-idle-time*
+        Type: *number*
+        Default: *0.5*
+        Description: Specifies the time in seconds of idle before showing Git blame information. Adjust this to control how quickly the blame information is displayed after the cursor is idle.
+
+    *emsg-blame-date-format*
+        Type: *string*
+        Default: *"%Y-*%m-%d"*
+        Description: Defines the format for displaying the commit date. You can customize this using standard format-time-string patterns.
+
+    *emsg-blame-data-pretty*
+        Type: *boolean*
+        Default: t
+        Description: Toggle between pretty (relative) time display and absolute time display. When set to t, relative time (e.g., "5 minutes ago") is shown. When set to nil, the exact commit date is displayed.
+
+    *emsg-blame-no-commit-message*
+        Type: *string*
+        Default: *"emsg-blame Output: No commit information available."*
+        Description: Message to display when no commit information is found for the current line. Customize this message to suit your preferences.
+
+    *emsg-blame-display*
+        Type: *function* or *nil*
+        Default: *#'emsg-blame--display-message*
+        Description: Function used to display the blame information. You can provide a custom function to handle the display of the blame information, or set this to nil to use the default display function.
+
+    *emsg-blame-i18n-lang*
+        Type: *string*
+        Default: *"English"*
+        Description: Local language environment for displaying time information. Possible values include:
+            *"English"*
+            *"Chinese"*
+            *"French"*
+            *"Russian"*
+            This setting determines the language used for time descriptions (e.g., "just now", "minutes ago").
+
+** Example Configuration
+Here's an example of how you might configure emsg-blame in your Emacs setup:
+#+begin_src emacs-lisp :tangle yes
+(setq emsg-blame-idle-time 1.0
+      emsg-blame-date-format "%Y-%m-%d %H:%M:%S"
+      emsg-blame-data-pretty t
+      emsg-blame-i18n-lang "Chinese")
+#+end_src
+
+** Commands
+
+    *emsg-blame-mode*
+        Description: Toggle *emsg-blame* mode in the current buffer.
+
+    *global-emsg-blame-mode*
+        Description: Toggle *emsg-blame* mode globally across all buffers.
+** Notes
+
+    The *emsg-blame* package requires Git to be installed and accessible from Emacs.
+    Non-ASCII filenames are supported, but filenames with non-ASCII characters may not be handled correctly in all environments.
+
+For more information and updates, please visit the project repository.
