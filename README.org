@@ -1,6 +1,10 @@
 # -*- coding: utf-8; -*-
 * emsg-blame
 
+** Repository status
+ *Under active maintenance*
+ If you see no commit information for a long time, it proves that the package is stable and don't worry that the repository has been abandoned.
+
 ** Overview
 A *simple*, *fast*, *asynchronous*, *customizable display*, view of git blame in Emacs.
 
