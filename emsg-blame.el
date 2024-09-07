@@ -2,21 +2,15 @@
 
 (require 'async)
 (require 'subr-x) ;; for `string-empty-p`
-;; (require 'posframe)
 
 (defgroup emsg-blame nil
   "A minor mode to show git blame information in messages."
   :group 'tools
   :prefix "emsg-blame-")
 
-(defcustom emsg-blame-idle-time 1.0
+(defcustom emsg-blame-idle-time 0.5
   "Time in seconds of idle before showing git blame information."
   :type 'number
-  :group 'emsg-blame)
-
-(defcustom emsg-blame-author-icon "👤"
-  "Icon used to display the author's name."
-  :type 'string
   :group 'emsg-blame)
 
 (defcustom emsg-blame-date-format "%Y-%m-%d"
@@ -24,16 +18,34 @@
   :type 'string
   :group 'emsg-blame)
 
-(defcustom emsg-blame-no-commit-message "`emsg-blame` No commit information available."
+(defcustom emsg-blame-no-commit-message "`emsg-blame` Output: No commit information available."
   "Message to show when no commit information is found."
   :type 'string
   :group 'emsg-blame)
 
-(defcustom emsg-blame-display-method 'message
-  "Method to display git blame information. Options are 'message or 'posframe."
-  :type '(choice (const :tag "Message" message)
-                 (const :tag "Posframe" posframe))
+(defcustom emsg-blame-display #'emsg-blame--display-message
+  "emsg-blame to display function."
+  :type '(choice (const nil)
+                 function)
   :group 'emsg-blame)
+
+  :group 'emsg-blame)
+
+(defvar emsg-blame--commit-author ""
+  "emsg-blame Commit Author.")
+
+(defvar emsg-blame--commit-date ""
+  "emsg-blame Commit Date.")
+
+(defvar emsg-blame--commit-summary ""
+  "emsg-blame Commit Summary.")
+
+(defun emsg-blame--display-message ()
+  "emsg-blame Default display function."
+  (message " %s %s %s " emsg-blame--commit-author emsg-blame--commit-date emsg-blame--commit-summary))
+
+(defvar-local emsg-blame--last-line nil
+  "Cache the last line number that was processed.")
 
 (defun emsg-blame--enable ()
   "Enable emsg-blame functionality."
@@ -42,12 +54,7 @@
 (defun emsg-blame--disable ()
   "Disable emsg-blame functionality."
   (cancel-function-timers #'emsg-blame--check-and-blame)
-  (setq emsg-blame--last-line nil)
-  (when (posframe-workable-p)
-    (posframe-hide "*emsg-blame-posframe*")))
-
-(defvar-local emsg-blame--last-line nil
-  "Cache the last line number that was processed.")
+  (setq emsg-blame--last-line nil))
 
 (defun emsg-blame--start-timer ()
   "Start the idle timer for emsg-blame."
@@ -63,6 +70,7 @@
       (setq emsg-blame--last-line current-line)
       (emsg-blame--async-blame file current-line))))
 
+;; TODO: Known issues: Non-ascii filenames are not supported, but non-ascii folders are supported
 (defun emsg-blame--async-blame (file line)
   "Asynchronously get git blame information for FILE at LINE."
   (async-start
@@ -89,20 +97,17 @@
              (summary (emsg-blame--extract-info output "^summary "))
              ;; 检查 author 和 date 是否成功提取
              (relative-time (if date (emsg-blame--format-relative-time date) "Unknown date")))
-        (if (eq emsg-blame-display-method 'posframe)
-            ;; 使用 posframe 显示信息
-            (emsg-blame--display (format "Author: %s\nDate: %s\n%s"
-                                         (or (string-trim author) "Unknown author")
-                                         relative-time
-                                         (or (string-trim summary) "No summary")))
-          ;; 使用 message 显示信息
-          (emsg-blame--display (format "%s %s %s <%s>"
-                                       emsg-blame-author-icon
-                                       (or (string-trim author) "Unknown author")
-                                       relative-time
-                                       (or (string-trim summary) "No summary")))))
+        ;; Assign variable; format is used to remove unknown symbols, such as ^M
+        (setq emsg-blame--commit-author (format "%s" (string-trim author))
+              emsg-blame--commit-date (format "%s" relative-time)
+              emsg-blame--commit-summary (format "%s" (string-trim summary))
+              )
+        ;; To display function.
+        (when (functionp emsg-blame-display)
+          (funcall emsg-blame-display))
+        )
     ;; 当 output 为 nil 或为空时，显示无提交信息
-    (emsg-blame--display emsg-blame-no-commit-message)))
+    (emsg-blame--no-commit-display emsg-blame-no-commit-message)))
 
 (defun emsg-blame--extract-info (output regex)
   "Extract information from the OUTPUT using the REGEX."
@@ -128,26 +133,9 @@
      ((< diff (* 1 seconds-in-month)) (format "%d个月前" (floor (/ diff seconds-in-month))))
      (t (format-time-string emsg-blame-date-format date)))))
 
-(defun emsg-blame--display (message-text)
-  "Display the MESSAGE-TEXT according to `emsg-blame-display-method`."
-  (if (eq emsg-blame-display-method 'posframe)
-      (emsg-blame--display-posframe message-text)
-    (message "%s" message-text)))
-
-(defun emsg-blame--display-posframe (message-text)
-  "Display the MESSAGE-TEXT using posframe at point."
-  (posframe-show "*emsg-blame-posframe*"
-               :string message-text
-               :timeout 5
-               :max-width 40
-               :left-fringe 5
-               :right-fringe 5
-               :position (point)
-               :poshandler #'posframe-poshandler-frame-top-right-corner
-               :border-width 5;; 外边框大小
-               :border-color "#ed98cc" ;; 边框颜色
-               )
-  )
+(defun emsg-blame--no-commit-display (message-text)
+  "Display the MESSAGE-TEXT according to `emsg-blame-no-commit-message`."
+    (message "%s" message-text))
 
 (defun emsg-blame--turn-on ()
   "Enable `emsg-blame-mode' in the current buffer."
