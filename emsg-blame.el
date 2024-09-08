@@ -18,9 +18,10 @@
 ;;; Code:
 (require 'async)
 (require 'subr-x)
+(require 'hl-line)
 
 (defgroup emsg-blame nil
-  "A minor mode to show git blame information in messages."
+  "A minor mode to show git blame information."
   :group 'tools
   :prefix "emsg-blame-")
 
@@ -64,11 +65,27 @@ This setting determines the language used for displaying time information."
                  (const :tag "Russian" "Russian"))
   :group 'emsg-blame)
 
-(defun emsg-blame--get-time-descriptions ()
+(defcustom emsg-blame-git-show-overlay-background-toggle t
+  "Toggle display diff overlay background."
+  :type 'boolean
+  :group 'emsg-blame)
+
+(defvar emsg-blame-git-show-overlay-background-color nil
+  "Customizable background color for diff overlays.
+If set to a color value (e.g., hex code or color name), it will be used as the background color for overlays that highlight differences.
+If set to nil, the default `hl-line` background color will be used instead.")
+
+(defvar emsg-blame-current-file ""
+  "emsg-blame to git blame filename.")
+
+(defvar emsg-blame-current-file-buffer-name ""
+  "emsg-blame to git blame filename buffer.")
+
+(defun emsg-blame--git-blame-i18n-get-time-descriptions ()
   "Return time description strings based on the current language environment."
-  (let ((lang (or emsg-blame-i18n-lang "English")))  ;; 默认英文
+  (let ((lang (or emsg-blame-i18n-lang "English")))  ;; Default English
     (cond
-     ;; 使用 `member` 检查语言环境
+     ;; Check locale using `member`
      ((member lang '("Chinese" "Chinese Simplified"))
       (list "刚刚"
             "%d分钟前"
@@ -101,6 +118,9 @@ This setting determines the language used for displaying time information."
               "%d months ago"
               "%d years ago")))))
 
+(defvar emsg-blame--commit-head ""
+  "emsg-blame Commit HEAD.")
+
 (defvar emsg-blame--commit-author ""
   "emsg-blame Commit Author.")
 
@@ -110,12 +130,15 @@ This setting determines the language used for displaying time information."
 (defvar emsg-blame--commit-summary ""
   "emsg-blame Commit Summary.")
 
+(defvar-local emsg-blame--last-line nil
+  "Cache the last line number that was processed.")
+
+(defvar emsg-blame--git-show-overlay-line nil
+  "List of overlays used for displaying `+` symbols at the beginning of lines.")
+
 (defun emsg-blame--display-message ()
   "emsg-blame Default display function."
   (message " %s %s <%s> " emsg-blame--commit-author emsg-blame--commit-date emsg-blame--commit-summary))
-
-(defvar-local emsg-blame--last-line nil
-  "Cache the last line number that was processed.")
 
 (defun emsg-blame--enable ()
   "Enable emsg-blame functionality."
@@ -123,25 +146,31 @@ This setting determines the language used for displaying time information."
 
 (defun emsg-blame--disable ()
   "Disable emsg-blame functionality."
-  (cancel-function-timers #'emsg-blame--check-and-blame)
+  (cancel-function-timers #'emsg-blame--git-blame-check)
   (setq emsg-blame--last-line nil))
 
 (defun emsg-blame--start-timer ()
   "Start the idle timer for emsg-blame."
-  (run-with-idle-timer emsg-blame-idle-time t #'emsg-blame--check-and-blame))
+  (run-with-idle-timer emsg-blame-idle-time t #'emsg-blame--git-blame-check))
 
-(defun emsg-blame--check-and-blame ()
+(defun emsg-blame--git-blame-check ()
   "Check if we need to run git blame and do so if necessary."
   (let ((current-line (line-number-at-pos))
-        (file (buffer-file-name)))
+        (file (buffer-file-name))
+        (buffer (buffer-name)))
     (when (and emsg-blame-mode
                file
                (not (equal current-line emsg-blame--last-line)))
       (setq emsg-blame--last-line current-line)
-      (emsg-blame--async-blame file current-line))))
+      (emsg-blame--git-blame-async file current-line)
+      (setopt emsg-blame-current-file file
+              emsg-blame-current-file-buffer-name buffer)
+      (emsg-blame--git-show-overlay-clear-line);; Clear all overlays line.
+      ))
+  )
 
 ;; TODO: Known issues: Non-ascii filenames are not supported, but non-ascii folders are supported
-(defun emsg-blame--async-blame (file line)
+(defun emsg-blame--git-blame-async (file line)
   "Asynchronously get git blame information for FILE at LINE."
   (async-start
    `(lambda ()
@@ -156,36 +185,130 @@ This setting determines the language used for displaying time information."
                                      ,(convert-standard-filename (file-name-nondirectory file))))
             (buffer-string)))))
    (lambda (output)
-     (emsg-blame--handle-blame-output output))))
+     (emsg-blame--git-blame-get-commit-info output))))
 
-(defun emsg-blame--handle-blame-output (output)
+(defun emsg-blame--git-show-overlay-add-line ()
+  "Use `overlay` to add highlight to each line."
+  (let ((start (line-beginning-position))
+        (end (line-beginning-position 2))
+        (bg-color (or emsg-blame-git-show-overlay-background-color
+                      (face-attribute 'hl-line :background nil 'default))))
+    (let ((new-overlay (make-overlay start end)))
+      (overlay-put new-overlay 'face `(:background ,bg-color))
+      (push new-overlay emsg-blame--git-show-overlay-line))))
+
+(defun emsg-blame--git-show-overlay-clear-line ()
+  "Clear all `emsg-blame--git-show-overlay-line`."
+  (dolist (overlay emsg-blame--git-show-overlay-line)
+    (delete-overlay overlay))
+  (setq emsg-blame--git-show-overlay-line nil))
+
+;; Keno issues: If the filename of the current file has changed in a commit,
+;; it will not be displayed here due to Git limitations.
+;; Test command: git --no-pager show current-head current-filename
+(defun emsg-blame--git-show-async (head)
+  "Retrieve and process the output of `git show` for the specified HEAD.
+This function uses an asynchronous process to run `git show` and handles the output.
+
+HEAD is the commit hash or reference to retrieve the git show output for.
+It also processes the output to filter and clean up lines for display in the `*emsg-blame--git-show-txt*` buffer."
+  (async-start
+   (let ((git-output nil)
+         (coding-system-for-read 'utf-8)
+         (coding-system-for-write 'utf-8))
+     ;; Use a temporary buffer to execute the git show command
+     (with-temp-buffer
+       (when (zerop (call-process "git" nil t nil
+                                  "--no-pager"
+                                  "show"
+                                  (format "%s" head)
+                                  (format "%s" emsg-blame-current-file)))
+         (setq git-output (buffer-string)))
+
+       ;; Create or switch to the *emsg-blame--git-show-txt* buffer
+       (with-current-buffer (get-buffer-create "*emsg-blame--git-show-txt*")
+         (erase-buffer)  ;; Clear the buffer contents
+         (insert git-output))) ;; Insert the git show command output
+
+     ;; Process the content of the *emsg-blame--git-show-txt* buffer
+     (with-current-buffer "*emsg-blame--git-show-txt*"
+       (let ((lines (split-string (buffer-string) "\n" t)))  ;; Split buffer content into lines
+         (erase-buffer)  ;; Clear the current buffer
+         (dolist (line lines)
+           (when (or (string-prefix-p "+" line)
+                     (string-prefix-p "@" line))
+             (insert (substring line 1) "\n")
+             )))  ;; Remove the leading + or @ from each line and insert it into the buffer
+       (goto-char (point-min)) ;; Move the cursor to the beginning of the buffer
+       )
+     (emsg-blame--git-show-comper-buffer);; Compare and add overlay lines.
+     ))
+  )
+
+(defun emsg-blame--git-show-comper-buffer ()
+  "Compare the content of `*emsg-blame--git-show-txt*` buffer with the current buffer."
+  (async-start
+   (let ((original-point (point))
+         (git-show-buffer (get-buffer "*emsg-blame--git-show-txt*"))
+         (current-buffer (get-buffer emsg-blame-current-file-buffer-name)))
+     (if (not git-show-buffer)
+         (message "Buffer *emsg-blame--git-show-txt* not found.")
+       (let* ((lines (split-string (with-current-buffer git-show-buffer (buffer-string)) "\n"))
+              (process (get-buffer-process current-buffer)))
+         ;; Async operation
+         (run-with-timer
+          0.1 nil
+          (lambda (lines buffer)
+            (with-current-buffer buffer
+              (save-excursion
+                (let ((start-point (point-min))
+                      (found-point nil))
+                  (dolist (line lines)
+                    (goto-char start-point)
+                    (setq found-point (re-search-forward (concat "^" (regexp-quote line) "$") nil t))
+                    (when found-point
+                      (emsg-blame--git-show-overlay-add-line)
+                      ;; Update start-point for next search
+                      (setq start-point (point))))
+                  )))
+            )
+          lines current-buffer)))))
+  )
+
+(defun emsg-blame--git-blame-get-commit-info (output)
   "Handle the OUTPUT of the git blame command."
-  ;; 检查 output 是否为 nil 或空字符串
+  ;; Check if output is nil or empty string
   (if (and output (not (string-empty-p output)))
-      (let* ((author (emsg-blame--extract-info output "^author "))
-             (date (emsg-blame--extract-info output "^author-time "))
-             (summary (emsg-blame--extract-info output "^summary "))
-             ;; 检查 author 和 date 是否成功提取
-             (relative-time (if date (emsg-blame--format-relative-time date) "Unknown date")))
+      (let* ((head-temp (emsg-blame--git-blame-extract-info output "^"))
+             (head (substring head-temp 0 (min 40 (length head-temp))))
+             (author (emsg-blame--git-blame-extract-info output "^author "))
+             (date (emsg-blame--git-blame-extract-info output "^author-time "))
+             (summary (emsg-blame--git-blame-extract-info output "^summary "))
+             ;; Check if author and date were extracted successfully
+             (relative-time (if date (emsg-blame--git-blame-format-relative-time date) "Unknown date")))
         ;; Assign variable; format is used to remove unknown symbols, such as ^M
         (setq emsg-blame--commit-author (format "%s" (string-trim author))
               emsg-blame--commit-date (format "%s" relative-time)
               emsg-blame--commit-summary (format "%s" (string-trim summary))
+              emsg-blame--commit-head (format "%s" (string-trim head))
               )
         ;; To display function.
         (when (functionp emsg-blame-display)
           (funcall emsg-blame-display))
+        ;; To display diff overlay background.
+        (when (and emsg-blame-git-show-overlay-background-toggle (not (string= emsg-blame--commit-head "0000000000000000000000000000000000000000")))
+          (emsg-blame--git-show-async emsg-blame--commit-head))
         )
-    ;; 当 output 为 nil 或为空时，显示无提交信息
-    (emsg-blame--no-commit-display emsg-blame-no-commit-message)))
+    ;; When output is nil or empty, no submission information is displayed.
+    (emsg-blame--no-commit-output emsg-blame-no-commit-message)))
 
-(defun emsg-blame--extract-info (output regex)
+(defun emsg-blame--git-blame-extract-info (output regex)
   "Extract information from the OUTPUT using the REGEX."
-  ;; 确保 output 不是 nil，并且成功匹配
+  ;; Make sure output is not nil and the match is successful
   (when (and output (string-match (concat regex "\\(.*\\)") output))
     (match-string 1 output)))
 
-(defun emsg-blame--format-relative-time (date)
+(defun emsg-blame--git-blame-format-relative-time (date)
   "Format relative time for display based on the selected language and the value of `emsg-blame-data-pretty`."
   (let* ((date (seconds-to-time (string-to-number (string-trim date))))
          (now (current-time))
@@ -195,8 +318,8 @@ This setting determines the language used for displaying time information."
          (seconds-in-day (* 24 seconds-in-hour))
          (seconds-in-month (* 30 seconds-in-day))
          (seconds-in-year (* 365 seconds-in-day))
-         ;; 获取时间描述
-         (descriptions (emsg-blame--get-time-descriptions))
+         ;; Get time description
+         (descriptions (emsg-blame--git-blame-i18n-get-time-descriptions))
          (just-now (nth 0 descriptions))
          (minutes-ago (nth 1 descriptions))
          (hours-ago (nth 2 descriptions))
@@ -204,10 +327,10 @@ This setting determines the language used for displaying time information."
          (months-ago (nth 4 descriptions))
          (years-ago (nth 5 descriptions)))
 
-    ;; 如果 `emsg-blame-data-pretty` 为 nil，直接显示绝对时间
+    ;; If `emsg-blame-data-pretty` is nil, display the absolute time directly
     (if (not emsg-blame-data-pretty)
         (format-time-string emsg-blame-date-format date)
-      ;; 否则显示相对时间
+      ;; Otherwise display relative time
       (cond
        ((< diff seconds-in-minute) just-now)
        ((< diff seconds-in-hour) (format minutes-ago (floor (/ diff seconds-in-minute))))
@@ -217,9 +340,9 @@ This setting determines the language used for displaying time information."
        (t (format years-ago (floor (/ diff seconds-in-year)))))))
   )
 
-(defun emsg-blame--no-commit-display (message-text)
+(defun emsg-blame--no-commit-output (message-text)
   "Display the MESSAGE-TEXT according to `emsg-blame-no-commit-message`."
-    (message "%s" message-text))
+  (message "%s" message-text))
 
 (defun emsg-blame--turn-on ()
   "Enable `emsg-blame-mode' in the current buffer."
@@ -230,7 +353,7 @@ This setting determines the language used for displaying time information."
 ;;;###autoload
 (define-minor-mode emsg-blame-mode
   "Minor mode to show git blame information in messages."
-  :lighter " MsgBlame"
+  :lighter " "
   :group 'emsg-blame
   (if emsg-blame-mode
       (emsg-blame--start-timer)
