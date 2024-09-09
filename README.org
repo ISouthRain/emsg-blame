@@ -7,14 +7,14 @@
  If you see no commit information for a long time, it proves that the package is stable and don't worry that the repository has been abandoned.
 
 ** Overview
-A *simple*, *fast*, *asynchronous*, *customizable display*, view of git blame in Emacs.
+A *simple*, *fast*, *asynchronous*, *customizable display*, *highlight all lines with the same commit information*, view of git blame in Emacs.
 
 *emsg-blame* is a minor mode for Emacs that displays Git blame information in the Emacs message area. This package provides detailed information about the last commit that affected the current line, including the author, date, and summary of the commit. It supports multiple languages for time descriptions and allows customization of how and when the blame information is displayed.
 
 - Only Emacs dependence, This package is very commonly used.
   - [[https://github.com/jwiegley/emacs-async][GitHub - jwiegley/emacs-async: Simple library for asynchronous processing in ...]]
 
-** Preview for message display
+** Preview for message display && highlight commit background.
 There are many more ways to display it.
 [[./attach/preview.gif]]
 
@@ -22,9 +22,11 @@ There are many more ways to display it.
 
 To install *emsg-blame* , place the following in your Emacs configuration file (*.emacs* or *init.el*):
 #+begin_src emacs-lisp :tangle yes
+;; Example configuration.
 (add-to-list 'load-path "/path/to/emsg-blame")
 (require 'emsg-blame)
-(global-emsg-blame-mode t)
+(setq emsg-blame-background t)
+(global-emsg-blame-mode)
 #+end_src
 
 ** Custom Display output
@@ -69,7 +71,16 @@ commit info variable:
 ** Customization
 
 The behavior of emsg-blame can be customized using the following variables:
+    *emsg-blame-background*
+       Type: *boolean*
 
+       Default: *t*
+
+       Description: Toggle highlight all lines with the same commit information use `overlay` background color.
+    *emsg-blame-background-color*
+        Default: *nil* , It is recommended to keep the default nil.
+        
+        Description: If set to a color value (e.g., hex code or color name), it will be used as the background color for overlays that highlight differences. If set to nil, the default `hl-line` background color will be used instead.
     *emsg-blame-idle-time*
         Type: *number*
         
@@ -117,15 +128,6 @@ The behavior of emsg-blame can be customized using the following variables:
             *"Russian"*
             This setting determines the language used for time descriptions (e.g., "just now", "minutes ago").
 
-** Example Configuration
-Here's an example of how you might configure emsg-blame in your Emacs setup:
-#+begin_src emacs-lisp :tangle yes
-(setq emsg-blame-idle-time 1.0
-      emsg-blame-date-format "%Y-%m-%d %H:%M:%S"
-      emsg-blame-data-pretty t
-      emsg-blame-i18n-lang "Chinese")
-#+end_src
-
 ** i18n local language
 #+begin_src emacs-lisp :tangle yes
 (setq emsg-blame-i18n-lang "Chinese")
@@ -148,3 +150,7 @@ For more information and updates, please visit the project repository.
 Pull requests are welcome.
 
 If you want to add new features, please discuss them in issues first to avoid wasting your precious time.
+
+** ChangLog
+*** 0.2
+feat: Add support highlight all lines with the same commit information.
