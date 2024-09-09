@@ -40,11 +40,6 @@
   :type 'boolean
   :group 'emsg-blame)
 
-(defcustom emsg-blame-no-commit-message "`emsg-blame` Output: No commit information available."
-  "Message to show when no commit information is found."
-  :type 'string
-  :group 'emsg-blame)
-
 (defcustom emsg-blame-display #'emsg-blame--display-message
   "emsg-blame to display function."
   :type '(choice (const nil)
@@ -291,8 +286,7 @@ It also processes the output to filter and clean up lines for display in the `*e
           (emsg-blame--git-show-comper-buffer);; Compare and add overlay lines.
           )
         )
-    ;; When output is nil or empty, no submission information is displayed.
-    (emsg-blame--no-commit-output emsg-blame-no-commit-message)))
+    ))
 
 (defun emsg-blame--git-blame-extract-info (output regex)
   "Extract information from the OUTPUT using the REGEX."
@@ -331,10 +325,6 @@ It also processes the output to filter and clean up lines for display in the `*e
        ((< diff seconds-in-year) (format months-ago (floor (/ diff seconds-in-month))))
        (t (format years-ago (floor (/ diff seconds-in-year)))))))
   )
-
-(defun emsg-blame--no-commit-output (message-text)
-  "Display the MESSAGE-TEXT according to `emsg-blame-no-commit-message`."
-  (message "%s" message-text))
 
 (defun emsg-blame--turn-on ()
   "Enable `emsg-blame-mode' in the current buffer."
