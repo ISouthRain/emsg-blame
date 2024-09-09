@@ -71,16 +71,19 @@ commit info variable:
 ** Customization
 
 The behavior of emsg-blame can be customized using the following variables:
+
     *emsg-blame-background*
        Type: *boolean*
 
        Default: *t*
 
        Description: Toggle highlight all lines with the same commit information use `overlay` background color.
+       
     *emsg-blame-background-color*
         Default: *nil* , It is recommended to keep the default nil.
         
         Description: If set to a color value (e.g., hex code or color name), it will be used as the background color for overlays that highlight differences. If set to nil, the default `hl-line` background color will be used instead.
+        
     *emsg-blame-idle-time*
         Type: *number*
         
