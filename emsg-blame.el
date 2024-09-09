@@ -65,7 +65,7 @@ This setting determines the language used for displaying time information."
                  (const :tag "Russian" "Russian"))
   :group 'emsg-blame)
 
-(defcustom emsg-blame-background-toggle t
+(defcustom emsg-blame-background nil
   "Toggle display diff overlay background."
   :type 'boolean
   :group 'emsg-blame)
