@@ -84,7 +84,7 @@ do not both fit in the echo area."
 	(message (concat cur-msg rev-blm-msg))
       (message rev-blm-msg))))
 
-(setq my--emsg-blame-display #'my--emsg-blame-display)
+(setq emsg-blame-display #'my--emsg-blame-display)
 #+end_src
 
 [[file:./attach/README/20240909_091135.png]]
