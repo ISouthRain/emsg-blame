@@ -6,7 +6,7 @@
 ;; License: GPL-3.0-or-later
 
 ;; Author: ISouthRain
-;; Version: 0.1
+;; Version: 0.2
 ;; Package-Requires: ((emacs "24.2"))
 ;; Keywords: blame
 ;; URL: https://github.com/ISouthRain/emsg-blame
@@ -69,6 +69,11 @@ This setting determines the language used for displaying time information."
   "Customizable background color for diff overlays.
 If set to a color value (e.g., hex code or color name), it will be used as the background color for overlays that highlight differences.
 If set to nil, the default `hl-line` background color will be used instead.")
+
+(defvar emsg-blame-debug nil
+  "Toggle emsg-blame debug log output.")
+(defvar emsg-blame-debug-log "*emsg-blame-log*"
+  "emsg-blame debug output buffer name.")
 
 (defvar emsg-blame-current-file ""
   "emsg-blame to git blame filename.")
@@ -135,6 +140,14 @@ If set to nil, the default `hl-line` background color will be used instead.")
   "emsg-blame Default display function."
   (message " %s %s <%s> " emsg-blame--commit-author emsg-blame--commit-date emsg-blame--commit-summary))
 
+(defun emsg-blame-debug-output (txt)
+  (when emsg-blame-debug
+    (with-current-buffer (get-buffer-create emsg-blame-debug-log)
+      (goto-char (point-max))
+      (insert txt)
+      (insert "\n")))
+  )
+
 (defun emsg-blame--enable ()
   "Enable emsg-blame functionality."
   (add-hook 'post-command-hook #'emsg-blame--post-command nil t))
@@ -159,6 +172,7 @@ If set to nil, the default `hl-line` background color will be used instead.")
       (setq emsg-blame--last-line current-line)
       (setopt emsg-blame-current-file file
               emsg-blame-current-file-buffer-name buffer)
+      (emsg-blame-debug-output "--------------------------------------------\n\nStart executing `git blame`..\n")
       (emsg-blame--git-show-overlay-clear-line);; Clear all overlays line.
       (emsg-blame--git-blame-async file current-line)
       )
@@ -168,6 +182,7 @@ If set to nil, the default `hl-line` background color will be used instead.")
 ;; TODO: Known issues: Non-ascii filenames are not supported, but non-ascii folders are supported
 (defun emsg-blame--git-blame-async (file line)
   "Asynchronously get git blame information for FILE at LINE."
+  (emsg-blame-debug-output (format "command: \n git blame -L %s,%s --porcelain %s\n" line line file))
   (async-start
    `(lambda ()
       (let ((default-directory ,(convert-standard-filename (file-name-directory file)))
@@ -181,6 +196,7 @@ If set to nil, the default `hl-line` background color will be used instead.")
                                      ,(convert-standard-filename (file-name-nondirectory file))))
             (buffer-string)))))
    (lambda (output)
+     (emsg-blame-debug-output (concat "`git blame` return success..\n\n" output "\n"))
      (emsg-blame--git-blame-get-commit-info output))))
 
 (defun emsg-blame--git-show-overlay-add-line ()
@@ -209,6 +225,7 @@ This function uses an asynchronous process to run `git show` and handles the out
 
 HEAD is the commit hash or reference to retrieve the git show output for.
 It also processes the output to filter and clean up lines for display in the `*emsg-blame--git-show-txt*` buffer."
+  (emsg-blame-debug-output (format "Command:\n git --no-pager show %s %s\n" head emsg-blame-current-file))
   (let ((git-output nil)
         (coding-system-for-read 'utf-8)
         (coding-system-for-write 'utf-8))
@@ -236,6 +253,7 @@ It also processes the output to filter and clean up lines for display in the `*e
             )))  ;; Remove the leading + or @ from each line and insert it into the buffer
       (goto-char (point-min)) ;; Move the cursor to the beginning of the buffer
       )
+    (emsg-blame-debug-output "Extraction `git show` successful!!\n\nStart comparing... \n\n")
     )
   )
 
@@ -257,6 +275,7 @@ It also processes the output to filter and clean up lines for display in the `*e
                   (emsg-blame--git-show-overlay-add-line)
                   ;; Update start-point for next search
                   (setq start-point (point))))))))))
+  (emsg-blame-debug-output "Comparison buffer completed.")
   )
 
 (defun emsg-blame--git-blame-get-commit-info (output)
@@ -282,6 +301,7 @@ It also processes the output to filter and clean up lines for display in the `*e
         ;; To display diff overlay background.
         (when (and emsg-blame-background
                    (not (string= emsg-blame--commit-head "0000000000000000000000000000000000000000")))
+          (emsg-blame-debug-output "With the correct `head` number, start executing highlighting...\n")
           (emsg-blame--git-show-async emsg-blame--commit-head)
           (emsg-blame--git-show-comper-buffer);; Compare and add overlay lines.
           )
