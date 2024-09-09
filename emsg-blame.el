@@ -65,12 +65,12 @@ This setting determines the language used for displaying time information."
                  (const :tag "Russian" "Russian"))
   :group 'emsg-blame)
 
-(defcustom emsg-blame-git-show-overlay-background-toggle t
+(defcustom emsg-blame-background-toggle t
   "Toggle display diff overlay background."
   :type 'boolean
   :group 'emsg-blame)
 
-(defvar emsg-blame-git-show-overlay-background-color nil
+(defvar emsg-blame-background-color nil
   "Customizable background color for diff overlays.
 If set to a color value (e.g., hex code or color name), it will be used as the background color for overlays that highlight differences.
 If set to nil, the default `hl-line` background color will be used instead.")
@@ -191,7 +191,7 @@ If set to nil, the default `hl-line` background color will be used instead.")
   "Use `overlay` to add highlight to each line."
   (let ((start (line-beginning-position))
         (end (line-beginning-position 2))
-        (bg-color (or emsg-blame-git-show-overlay-background-color
+        (bg-color (or emsg-blame-background-color
                       (face-attribute 'hl-line :background nil 'default))))
     (let ((new-overlay (make-overlay start end)))
       (overlay-put new-overlay 'face `(:background ,bg-color))
@@ -296,7 +296,7 @@ It also processes the output to filter and clean up lines for display in the `*e
         (when (functionp emsg-blame-display)
           (funcall emsg-blame-display))
         ;; To display diff overlay background.
-        (when (and emsg-blame-git-show-overlay-background-toggle (not (string= emsg-blame--commit-head "0000000000000000000000000000000000000000")))
+        (when (and emsg-blame-background-toggle (not (string= emsg-blame--commit-head "0000000000000000000000000000000000000000")))
           (emsg-blame--git-show-async emsg-blame--commit-head))
         )
     ;; When output is nil or empty, no submission information is displayed.
