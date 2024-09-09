@@ -162,11 +162,12 @@ If set to nil, the default `hl-line` background color will be used instead.")
                file
                (not (equal current-line emsg-blame--last-line)))
       (setq emsg-blame--last-line current-line)
-      (emsg-blame--git-blame-async file current-line)
       (setopt emsg-blame-current-file file
               emsg-blame-current-file-buffer-name buffer)
       (emsg-blame--git-show-overlay-clear-line);; Clear all overlays line.
-      ))
+      (emsg-blame--git-blame-async file current-line)
+      )
+    )
   )
 
 ;; TODO: Known issues: Non-ascii filenames are not supported, but non-ascii folders are supported
@@ -206,73 +207,61 @@ If set to nil, the default `hl-line` background color will be used instead.")
 ;; Keno issues: If the filename of the current file has changed in a commit,
 ;; it will not be displayed here due to Git limitations.
 ;; Test command: git --no-pager show current-head current-filename
+;; TODO: It should be handled as async separately, rather than in emsg-blame--git-blame-async.
 (defun emsg-blame--git-show-async (head)
   "Retrieve and process the output of `git show` for the specified HEAD.
 This function uses an asynchronous process to run `git show` and handles the output.
 
 HEAD is the commit hash or reference to retrieve the git show output for.
 It also processes the output to filter and clean up lines for display in the `*emsg-blame--git-show-txt*` buffer."
-  (async-start
-   (let ((git-output nil)
-         (coding-system-for-read 'utf-8)
-         (coding-system-for-write 'utf-8))
-     ;; Use a temporary buffer to execute the git show command
-     (with-temp-buffer
-       (when (zerop (call-process "git" nil t nil
-                                  "--no-pager"
-                                  "show"
-                                  (format "%s" head)
-                                  (format "%s" emsg-blame-current-file)))
-         (setq git-output (buffer-string)))
-
-       ;; Create or switch to the *emsg-blame--git-show-txt* buffer
-       (with-current-buffer (get-buffer-create "*emsg-blame--git-show-txt*")
-         (erase-buffer)  ;; Clear the buffer contents
-         (insert git-output))) ;; Insert the git show command output
-
-     ;; Process the content of the *emsg-blame--git-show-txt* buffer
-     (with-current-buffer "*emsg-blame--git-show-txt*"
-       (let ((lines (split-string (buffer-string) "\n" t)))  ;; Split buffer content into lines
-         (erase-buffer)  ;; Clear the current buffer
-         (dolist (line lines)
-           (when (or (string-prefix-p "+" line)
-                     (string-prefix-p "@" line))
-             (insert (substring line 1) "\n")
-             )))  ;; Remove the leading + or @ from each line and insert it into the buffer
-       (goto-char (point-min)) ;; Move the cursor to the beginning of the buffer
-       )
-     (emsg-blame--git-show-comper-buffer);; Compare and add overlay lines.
-     ))
+  (let ((git-output nil)
+        (coding-system-for-read 'utf-8)
+        (coding-system-for-write 'utf-8))
+    ;; Use a temporary buffer to execute the git show command
+    (with-temp-buffer
+      (when (zerop (call-process "git" nil t nil
+                                 "--no-pager"
+                                 "show"
+                                 (format "%s" head)
+                                 (format "%s" emsg-blame-current-file)))
+        (setq git-output (buffer-string)))
+      ;; Create or switch to the *emsg-blame--git-show-txt* buffer
+      (with-current-buffer (get-buffer-create "*emsg-blame--git-show-txt*")
+        (erase-buffer)  ;; Clear the buffer contents
+        (insert git-output))
+      )
+    ;; Process the content of the *emsg-blame--git-show-txt* buffer
+    (with-current-buffer "*emsg-blame--git-show-txt*"
+      (let ((lines (split-string (buffer-string) "\n" t)))  ;; Split buffer content into lines
+        (erase-buffer)  ;; Clear the current buffer
+        (dolist (line lines)
+          (when (or (string-prefix-p "+" line)
+                    (string-prefix-p "@@" line))
+            (insert (substring line 1) "\n")
+            )))  ;; Remove the leading + or @ from each line and insert it into the buffer
+      (goto-char (point-min)) ;; Move the cursor to the beginning of the buffer
+      )
+    )
   )
 
 (defun emsg-blame--git-show-comper-buffer ()
   "Compare the content of `*emsg-blame--git-show-txt*` buffer with the current buffer."
-  (async-start
-   (let ((original-point (point))
-         (git-show-buffer (get-buffer "*emsg-blame--git-show-txt*"))
-         (current-buffer (get-buffer emsg-blame-current-file-buffer-name)))
-     (if (not git-show-buffer)
-         (message "Buffer *emsg-blame--git-show-txt* not found.")
-       (let* ((lines (split-string (with-current-buffer git-show-buffer (buffer-string)) "\n"))
-              (process (get-buffer-process current-buffer)))
-         ;; Async operation
-         (run-with-timer
-          0.1 nil
-          (lambda (lines buffer)
-            (with-current-buffer buffer
-              (save-excursion
-                (let ((start-point (point-min))
-                      (found-point nil))
-                  (dolist (line lines)
-                    (goto-char start-point)
-                    (setq found-point (re-search-forward (concat "^" (regexp-quote line) "$") nil t))
-                    (when found-point
-                      (emsg-blame--git-show-overlay-add-line)
-                      ;; Update start-point for next search
-                      (setq start-point (point))))
-                  )))
-            )
-          lines current-buffer)))))
+  (let ((git-show-buffer (get-buffer "*emsg-blame--git-show-txt*"))
+        (buffers (get-buffer emsg-blame-current-file-buffer-name)))
+    (if (not git-show-buffer)
+        (message "Buffer *emsg-blame--git-show-txt* not found.")
+      (let ((lines (split-string (with-current-buffer git-show-buffer (buffer-string)) "\n" t)))
+        (with-current-buffer buffers
+          (save-excursion
+            (let ((start-point (point-min)))
+              ;; TODO: @@block@@block matching should be used instead of per-line matching, as per-line matching is not accurate enough.
+              (dolist (line lines)
+                (goto-char start-point)
+                (when (re-search-forward (concat "^" (regexp-quote line) "$") nil t)
+                  ;; add overlay
+                  (emsg-blame--git-show-overlay-add-line)
+                  ;; Update start-point for next search
+                  (setq start-point (point))))))))))
   )
 
 (defun emsg-blame--git-blame-get-commit-info (output)
@@ -296,8 +285,11 @@ It also processes the output to filter and clean up lines for display in the `*e
         (when (functionp emsg-blame-display)
           (funcall emsg-blame-display))
         ;; To display diff overlay background.
-        (when (and emsg-blame-background-toggle (not (string= emsg-blame--commit-head "0000000000000000000000000000000000000000")))
-          (emsg-blame--git-show-async emsg-blame--commit-head))
+        (when (and emsg-blame-background
+                   (not (string= emsg-blame--commit-head "0000000000000000000000000000000000000000")))
+          (emsg-blame--git-show-async emsg-blame--commit-head)
+          (emsg-blame--git-show-comper-buffer);; Compare and add overlay lines.
+          )
         )
     ;; When output is nil or empty, no submission information is displayed.
     (emsg-blame--no-commit-output emsg-blame-no-commit-message)))
