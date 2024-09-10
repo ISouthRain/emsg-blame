@@ -69,22 +69,18 @@ If you already use the echo area to display similar messages (e.g., [[https://el
   "Display git blame message, right-aligned with Magit-style faces.
 If another message is already being displayed, display both messages unless they
 do not both fit in the echo area."
-  (let* ((cur-msg (current-message))
-	 (blm-msg (format "%s %s %s "
-			  emsg-blame--commit-summary
-			  (propertize emsg-blame--commit-author 'face 'magit-log-author)
-			  (propertize emsg-blame--commit-date 'face 'magit-log-date)))
-	 (blm-msg-fits-p (lambda () (> available-width (length blm-msg))))
-	 (available-width (- (frame-width) (length cur-msg) 1))
-	 (rev-blm-msg (if (< (length blm-msg) (frame-width))
-			  (let ((padding (if (funcall blm-msg-fits-p)
-					     (- available-width (length blm-msg))
-					   (- (frame-width) (length blm-msg)))))
-			    (concat (make-string padding ?\s) blm-msg))
-			blm-msg)))
-    (if (funcall blm-msg-fits-p)
-	(message (concat cur-msg rev-blm-msg))
-      (message rev-blm-msg))))
+  (let* ((cur-msg (or (current-message) ""))
+         (blm-msg (format "%s %s %s "
+                          emsg-blame--commit-summary
+                          (propertize emsg-blame--commit-author 'face 'magit-log-author)
+                          (propertize emsg-blame--commit-date 'face 'magit-log-date)))
+         (available-width (max 0 (- (frame-width) (string-width cur-msg) 1)))
+         (blm-msg-width (string-width blm-msg))
+         (padding (max 0 (- available-width blm-msg-width)))
+         (rev-blm-msg (concat (make-string padding ?\s) blm-msg)))
+    (if (> blm-msg-width available-width)
+        (message blm-msg)
+      (message (concat cur-msg rev-blm-msg)))))
 
 (setq emsg-blame-display #'my--emsg-blame-display)
 #+end_src
