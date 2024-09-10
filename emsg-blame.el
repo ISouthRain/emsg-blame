@@ -134,6 +134,7 @@ If set to nil, the default `hl-line` background color will be used instead.")
 (defun emsg-blame--disable ()
   "Disable emsg-blame functionality."
   (cancel-function-timers #'emsg-blame--git-blame-check)
+  (emsg-blame--git-show-overlay-clear-line)
   (setq emsg-blame--last-line nil))
 
 (defun emsg-blame--start-timer ()
