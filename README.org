@@ -60,6 +60,37 @@ To install *emsg-blame* , place the following in your Emacs configuration file (
 #+end_src
 [[file:./attach/README/20240907_142546.png]]
 
+*** right-aligned, propertized
+
+If you already use the echo area to display similar messages (e.g., [[https://elpa.gnu.org/packages/eldoc.html][eldoc]]), you can display the blame information right-aligned, and preserve the existing messages as long as there is enough space. The function below also propertizes the blame message with Magit-style faces for the commit author and date.
+
+#+begin_src emacs-lisp
+(defun my--emsg-blame-display ()
+  "Display git blame message, right-aligned with Magit-style faces.
+If another message is already being displayed, display both messages unless they
+do not both fit in the echo area."
+  (let* ((cur-msg (current-message))
+	 (blm-msg (format "%s %s %s "
+			  emsg-blame--commit-summary
+			  (propertize emsg-blame--commit-author 'face 'magit-log-author)
+			  (propertize emsg-blame--commit-date 'face 'magit-log-date)))
+	 (blm-msg-fits-p (lambda () (> available-width (length blm-msg))))
+	 (available-width (- (frame-width) (length cur-msg) 1))
+	 (rev-blm-msg (if (< (length blm-msg) (frame-width))
+			  (let ((padding (if (funcall blm-msg-fits-p)
+					     (- available-width (length blm-msg))
+					   (- (frame-width) (length blm-msg)))))
+			    (concat (make-string padding ?\s) blm-msg))
+			blm-msg)))
+    (if (funcall blm-msg-fits-p)
+	(message (concat cur-msg rev-blm-msg))
+      (message rev-blm-msg))))
+
+(setq emsg-blame-display #'my--emsg-blame-display)
+#+end_src
+
+[[file:./attach/README/20240909_091135.png]]
+
 *** More display Method
 I think you already understand!
 
