@@ -94,6 +94,7 @@ commit info variable:
 - *emsg-blame--commit-author*
 - *emsg-blame--commit-date*
 - *emsg-blame--commit-summary*
+- *emsg-blame--commit-head*
 
 ** Customization
 
@@ -160,11 +161,19 @@ The behavior of emsg-blame can be customized using the following variables:
 
 ** i18n local language
 #+begin_src emacs-lisp :tangle yes
-(setq emsg-blame-i18n-lang "Chinese")
+(setq emsg-blame-i18n-date-now "当前"
+      emsg-blame-i18n-date-min "%s 分钟前"
+      ;; hour, day, month, year
+      ;; .......
+      )
 #+end_src
 [[file:./attach/README/20240907_141309.png]]
 #+begin_src emacs-lisp :tangle yes
-(setq emsg-blame-i18n-lang "French")
+(setq emsg-blame-i18n-date-now "à l'instant"
+      emsg-blame-i18n-date-min "il y a %d minutes"
+      ;; hour, day, month, year
+      ;; .......
+      )
 #+end_src
 [[file:./attach/README/20240907_141415.png]]
 

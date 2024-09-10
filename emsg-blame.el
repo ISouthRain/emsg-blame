@@ -46,20 +46,6 @@
                  function)
   :group 'emsg-blame)
 
-(defcustom emsg-blame-i18n-lang "English"
-  "Local language environment for `emsg-blame`.
-Possible values include:
-- \"English\" (default)
-- \"Chinese\"
-- \"French\"
-- \"Russian\"
-This setting determines the language used for displaying time information."
-  :type '(choice (const :tag "English" "English")
-                 (const :tag "Chinese" "Chinese")
-                 (const :tag "French" "French")
-                 (const :tag "Russian" "Russian"))
-  :group 'emsg-blame)
-
 (defcustom emsg-blame-background nil
   "Toggle display diff overlay background."
   :type 'boolean
@@ -69,6 +55,36 @@ This setting determines the language used for displaying time information."
   "Customizable background color for diff overlays.
 If set to a color value (e.g., hex code or color name), it will be used as the background color for overlays that highlight differences.
 If set to nil, the default `hl-line` background color will be used instead.")
+
+(defcustom emsg-blame-i18n-date-now "Just Now"
+  "String for 'Just Now' in the current language."
+  :type 'string
+  :group 'emsg-blame)
+
+(defcustom emsg-blame-i18n-date-min "%d minutes ago"
+  "String for '%d minutes ago' in the current language."
+  :type 'string
+  :group 'emsg-blame)
+
+(defcustom emsg-blame-i18n-date-hour "%d hours ago"
+  "String for '%d hours ago' in the current language."
+  :type 'string
+  :group 'emsg-blame)
+
+(defcustom emsg-blame-i18n-date-day "%d days ago"
+  "String for '%d days ago' in the current language."
+  :type 'string
+  :group 'emsg-blame)
+
+(defcustom emsg-blame-i18n-date-month "%d months ago"
+  "String for '%d months ago' in the current language."
+  :type 'string
+  :group 'emsg-blame)
+
+(defcustom emsg-blame-i18n-date-year "%d years ago"
+  "String for '%d years ago' in the current language."
+  :type 'string
+  :group 'emsg-blame)
 
 (defvar emsg-blame-debug nil
   "Toggle emsg-blame debug log output.")
@@ -80,43 +96,6 @@ If set to nil, the default `hl-line` background color will be used instead.")
 
 (defvar emsg-blame-current-file-buffer-name ""
   "emsg-blame to git blame filename buffer.")
-
-(defun emsg-blame--git-blame-i18n-get-time-descriptions ()
-  "Return time description strings based on the current language environment."
-  (let ((lang (or emsg-blame-i18n-lang "English")))  ;; Default English
-    (cond
-     ;; Check locale using `member`
-     ((member lang '("Chinese" "Chinese Simplified"))
-      (list "刚刚"
-            "%d分钟前"
-            "%d小时前"
-            "%d天前"
-            "%d个月前"
-            "%d年前"))
-
-     ((member lang '("French"))
-      (list "à l'instant"
-            "il y a %d minutes"
-            "il y a %d heures"
-            "il y a %d jours"
-            "il y a %d mois"
-            "il y a %d ans"))
-
-     ((member lang '("Russian"))
-      (list "только что"
-            "%d минут назад"
-            "%d часов назад"
-            "%d дней назад"
-            "%d месяцев назад"
-            "%d лет назад"))
-
-     ;; 默认英文
-     (t (list "Just Now"
-              "%d minutes ago"
-              "%d hours ago"
-              "%d days ago"
-              "%d months ago"
-              "%d years ago")))))
 
 (defvar emsg-blame--commit-head ""
   "emsg-blame Commit HEAD.")
@@ -324,14 +303,12 @@ It also processes the output to filter and clean up lines for display in the `*e
          (seconds-in-day (* 24 seconds-in-hour))
          (seconds-in-month (* 30 seconds-in-day))
          (seconds-in-year (* 365 seconds-in-day))
-         ;; Get time description
-         (descriptions (emsg-blame--git-blame-i18n-get-time-descriptions))
-         (just-now (nth 0 descriptions))
-         (minutes-ago (nth 1 descriptions))
-         (hours-ago (nth 2 descriptions))
-         (days-ago (nth 3 descriptions))
-         (months-ago (nth 4 descriptions))
-         (years-ago (nth 5 descriptions)))
+         (just-now emsg-blame-i18n-date-now)
+         (minutes-ago emsg-blame-i18n-date-min)
+         (hours-ago emsg-blame-i18n-date-hour)
+         (days-ago emsg-blame-i18n-date-day)
+         (months-ago emsg-blame-i18n-date-month)
+         (years-ago emsg-blame-i18n-date-year))
 
     ;; If `emsg-blame-data-pretty` is nil, display the absolute time directly
     (if (not emsg-blame-data-pretty)
