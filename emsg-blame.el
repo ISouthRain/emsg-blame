@@ -7,7 +7,7 @@
 
 ;; Author: ISouthRain
 ;; Version: 0.2
-;; Package-Requires: ((emacs "24.2"))
+;; Package-Requires: ((emacs "24.2") (async "1.8"))
 ;; Keywords: blame
 ;; URL: https://github.com/ISouthRain/emsg-blame
 
@@ -162,7 +162,7 @@ If set to nil, the default `hl-line` background color will be used instead.")
 ;; TODO: Known issues: Non-ascii filenames are not supported, but non-ascii folders are supported
 (defun emsg-blame--git-blame-async (file line)
   "Asynchronously get git blame information for FILE at LINE."
-  (emsg-blame-debug-output (format "command: \n git blame -L %s,%s --porcelain %s\n" line line file))
+  (emsg-blame-debug-output (format "command: \n git blame -L %s,%s --incremental %s\n" line line file))
   (async-start
    `(lambda ()
       (let ((default-directory ,(convert-standard-filename (file-name-directory file)))
@@ -172,7 +172,7 @@ If set to nil, the default `hl-line` background color will be used instead.")
           (when (zerop (call-process "git" nil t nil
                                      "blame"
                                      "-L" ,(format "%d,%d" line line)
-                                     "--porcelain"
+                                     "--incremental"
                                      ,(convert-standard-filename (file-name-nondirectory file))))
             (buffer-string)))))
    (lambda (output)
