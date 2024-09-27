@@ -73,8 +73,8 @@ do not both fit in the echo area."
          (cur-msg (or (current-message) ""))
 	 (blm-msg (format "%s %s %s "
 			  emsg-blame--commit-summary
-			  (propertize emsg-blame--commit-author 'face 'magit-log-author)
-			  (propertize emsg-blame--commit-date 'face 'magit-log-date)))
+			  (propertize emsg-blame--commit-author 'face 'error)
+			  (propertize emsg-blame--commit-date 'face 'warning)))
 	 (available-width (max 0 (- (frame-width) (string-width cur-msg) 1)))
 	 (blm-msg-width (string-width blm-msg))
 	 (padding (max 0 (- available-width blm-msg-width)))
