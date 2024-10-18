@@ -172,6 +172,11 @@ Pull requests are welcome.
 
 If you want to add new features, please discuss them in issues first to avoid wasting your precious time.
 
+** Similar packages
+- [[https://github.com/Artawower/blamer.el][GitHub - Artawower/blamer.el: A git blame plugin for emacs inspired by VS Cod...]]
+
+- [[https://github.com/emacs-sideline/sideline-blame][GitHub - emacs-sideline/sideline-blame: Show blame messages with sideline]]
+
 ** ChangLog
 *** 0.2
 feat: Add support highlight all lines with the same commit information.
