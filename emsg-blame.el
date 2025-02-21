@@ -115,6 +115,9 @@ If set to nil, the default `hl-line` background color will be used instead.")
 (defvar emsg-blame--git-show-overlay-line nil
   "List of overlays used for displaying `+` symbols at the beginning of lines.")
 
+(defvar emsg-blame--idle-timer nil
+  "Global idle timer used by `emsg-blame-mode'.")
+
 (defun emsg-blame--display-message ()
   "emsg-blame Default display function."
   (message " %s %s <%s> " emsg-blame--commit-author emsg-blame--commit-date emsg-blame--commit-summary))
@@ -133,13 +136,17 @@ If set to nil, the default `hl-line` background color will be used instead.")
 
 (defun emsg-blame--disable ()
   "Disable emsg-blame functionality."
-  (cancel-function-timers #'emsg-blame--git-blame-check)
+  (when emsg-blame--idle-timer
+    (cancel-timer emsg-blame--idle-timer)
+    (setq emsg-blame--idle-timer nil))
   (emsg-blame--git-show-overlay-clear-line)
   (setq emsg-blame--last-line nil))
 
 (defun emsg-blame--start-timer ()
-  "Start the idle timer for emsg-blame."
-  (run-with-idle-timer emsg-blame-idle-time t #'emsg-blame--git-blame-check))
+  "Start the idle timer for emsg-blame if not already running."
+  (unless emsg-blame--idle-timer
+    (setq emsg-blame--idle-timer
+          (run-with-idle-timer emsg-blame-idle-time t #'emsg-blame--git-blame-check))))
 
 (defun emsg-blame--git-blame-check ()
   "Check if we need to run git blame and do so if necessary."
