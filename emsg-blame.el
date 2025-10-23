@@ -1,5 +1,3 @@
-;; -*- coding: utf-8; -*-
-
 ;;; emsg-blame.el --- View git blame in Emacs.  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2024 Free Software Foundation, Inc.
