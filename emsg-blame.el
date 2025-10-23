@@ -1,10 +1,10 @@
 ;;; emsg-blame.el --- View git blame in Emacs.  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2024 Free Software Foundation, Inc.
+;; Copyright (C) 2025 Free Software Foundation, Inc.
 ;; License: GPL-3.0-or-later
 
 ;; Author: ISouthRain
-;; Version: 0.2
+;; Version: 0.3.1
 ;; Package-Requires: ((emacs "24.2") (async "1.8"))
 ;; Keywords: blame
 ;; URL: https://github.com/ISouthRain/emsg-blame
